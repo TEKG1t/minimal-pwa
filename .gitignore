@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+
+# Production and local build output
+dist/
+dist-ssr/
+dev-dist/
+.vite/
+
+# Test, coverage, and profiling output
+coverage/
+.nyc_output/
+*.lcov
+*.prof
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and diagnostic output
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Package-manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/install-state.gz
+.yarn/unplugged/
+
+# Local tooling and editor state
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.swp
+*.swo
+
+# OS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+*~
+
+# Local HTTPS certificates
+*.key
+*.pem
+*.crt
+*.csr
+!.well-known/
