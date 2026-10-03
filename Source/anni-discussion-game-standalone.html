@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="theme-color" content="#3A3A3D" />
+<title>Anni - Discussion Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin:0; padding:0; background:#3A3A3D; overscroll-behavior:none; }
+  #root { min-height: 100vh; }
+</style>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+
+/* ============================== THEME ============================== */
+const C = {
+  paper: "#EFE7D8",
+  paper2: "#E4D9C4",
+  ink: "#201C1B",
+  pink: "#D6336C",
+  teal: "#2F9C95",
+  yellow: "#F0A93A",
+  asphalt: "#3A3A3D",
+  asphaltDark: "#232225",
+  red: "#B23A2E",
+};
+
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ============================== HELPERS ============================== */
+const rndInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const rndFloat = (min, max) => Math.random() * (max - min) + min;
+const pctAmount = ([min, max], base) => Math.round((rndFloat(min, max) / 100) * base);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const choice = (arr) => arr[rndInt(0, arr.length - 1)];
+
+
+/* ============================== ICONS (emoji-based, no external deps) ============================== */
+function Glyph({ children, size = 18, style }) {
+  return <span style={{ fontSize: size, lineHeight: 1, display: "inline-block", ...style }}>{children}</span>;
+}
+const IconSwords = (p) => <Glyph size={p.size}>⚔️</Glyph>;
+const IconSparkles = (p) => <Glyph size={p.size}>✨</Glyph>;
+const IconUser = (p) => <Glyph size={p.size}>👤</Glyph>;
+const IconX = (p) => <Glyph size={p.size}>✕</Glyph>;
+const IconRotate = (p) => <Glyph size={p.size}>↺</Glyph>;
+const IconCheck = (p) => <Glyph size={p.size}>✓</Glyph>;
+const IconLock = (p) => <Glyph size={p.size}>🔒</Glyph>;
+const IconChevron = (p) => <Glyph size={p.size}>›</Glyph>;
+
+/* ============================== DATA: ARGUMENTS ============================== */
+const ARGS = {
+  screech: { id: "screech", name: "Screech", pack: "Default-Paket", category: "damage", dialogue: "Screeeeeeeeeeech", type: "damageSelfSplash", dmg: [5, 10], selfDmg: [1, 3], desc: "Trifft die Rivalin hart, kratzt aber auch an dir selbst." },
+  rakete: { id: "rakete", name: "Rakete Rakete", pack: "Default-Paket", category: "heal", dialogue: "Rakete Rakete", type: "heal", heal: [2.5, 5], desc: "Ein kleiner Energieschub für deine Stärke." },
+  suessi: { id: "suessi", name: "Süßi", pack: "Default-Paket", category: "heal", dialogue: "Du bist süßi", type: "heal", heal: [5, 25], desc: "Ein ehrliches Kompliment heilt erstaunlich gut." },
+  rrruu: { id: "rrruu", name: "Rrruu", pack: "Default-Paket", category: "heal", dialogue: "rrrruuu rrrrruuuu", type: "healDmgSplit", total: 35, desc: "Unberechenbar - heilt dich und schadet der Rivalin, Aufteilung zufällig." },
+  miau: { id: "miau", name: "Miau", pack: "Default-Paket", category: "damage", dialogue: "miau miau miauuu", type: "dmgHealSplit", total: 35, desc: "Unberechenbar - schadet der Rivalin und heilt dich, Aufteilung zufällig." },
+  machste_nix: { id: "machste_nix", name: "Machste nix", pack: "Default-Paket", category: "damage", dialogue: "da machste nichts", type: "damage", dmg: [10, 10], desc: "Ein trockener Konter mit verlässlichem Schaden." },
+  team_maskulin: { id: "team_maskulin", name: "Team Maskulin", pack: "Trash-Paket", category: "damage", dialogue: "weil ich der maskuline Mann bin. Und du hast drauf geschissen!", type: "damageSelfSplash", dmg: [20, 20], selfDmg: [10, 10], desc: "Hoher Schaden, aber riskant für dich selbst." },
+  schmetterlinge: { id: "schmetterlinge", name: "Schmetterlinge", pack: "Trash-Paket", category: "heal", dialogue: "du bist die Königin der Schmetterlinge", type: "healBoth", heal: [20, 20], enemyHeal: [5, 5], desc: "Heilt dich kräftig - aus Versehen auch etwas die Rivalin." },
+  labil: { id: "labil", name: "Labil", pack: "Trash-Paket", category: "damage", dialogue: "du bist labil. Du. Bist. Labil.", type: "damageSelfHeal", dmg: [15, 15], heal: [5, 5], desc: "Schadet der Rivalin und heilt dich ein wenig." },
+  nudelsalat: { id: "nudelsalat", name: "Nudelsalat", pack: "Trash-Paket", category: "heal", dialogue: "hör nicht auf andere. Das macht dir nur Nudelsalat im Kopf.", type: "healEnemyDmg", heal: [10, 10], dmg: [5, 5], desc: "Heilt dich vor allem, schadet der Rivalin ein wenig." },
+};
+const ARG_IDS = Object.keys(ARGS);
+
+function resolveArg(def, casterMax, targetMax) {
+  switch (def.type) {
+    case "damage":
+      return { dmgToTarget: pctAmount(def.dmg, targetMax) };
+    case "damageSelfSplash":
+      return { dmgToTarget: pctAmount(def.dmg, targetMax), dmgToSelf: pctAmount(def.selfDmg, casterMax) };
+    case "heal":
+      return { healToSelf: pctAmount(def.heal, casterMax) };
+    case "healDmgSplit": {
+      const healRoll = rndFloat(1, def.total);
+      const dmgRoll = def.total - healRoll;
+      return { healToSelf: Math.round((healRoll / 100) * casterMax), dmgToTarget: Math.round((dmgRoll / 100) * targetMax) };
+    }
+    case "dmgHealSplit": {
+      const dmgRoll = rndFloat(1, def.total);
+      const healRoll = def.total - dmgRoll;
+      return { dmgToTarget: Math.round((dmgRoll / 100) * targetMax), healToSelf: Math.round((healRoll / 100) * casterMax) };
+    }
+    case "healBoth":
+      return { healToSelf: pctAmount(def.heal, casterMax), healToTarget: pctAmount(def.enemyHeal, targetMax) };
+    case "damageSelfHeal":
+      return { dmgToTarget: pctAmount(def.dmg, targetMax), healToSelf: pctAmount(def.heal, casterMax) };
+    case "healEnemyDmg":
+      return { healToSelf: pctAmount(def.heal, casterMax), dmgToTarget: pctAmount(def.dmg, targetMax) };
+    default:
+      return {};
+  }
+}
+
+function pickRandomArgId(category, exclude = []) {
+  const pool = ARG_IDS.filter((id) => ARGS[id].category === category && !exclude.includes(id));
+  return choice(pool.length ? pool : ARG_IDS);
+}
+
+/* ============================== DATA: CHARACTERS ============================== */
+const CHARS = {
+  felix: { id: "felix", name: "Felix", pack: "Default-Paket", sprite: "felix", rivalArgs: { mode: "oneEachRandom" }, ally: { type: "healBoost", mult: 2.5, label: "Verstärkt deine Heilung ×2.5" }, blurb: "Muskulöser, freundlicher Nerd mit runder Brille und lockigem Haar, Anfang zwanzig." },
+  vada: { id: "vada", name: "Vada", pack: "Default-Paket", sprite: "vada", rivalArgs: { mode: "oneEachRandom" }, ally: { type: "dmgBoost", mult: 2.5, label: "Verstärkt deinen Schaden ×2.5" }, blurb: "Kurvig, pinker Buzzcut, nonbinär, immer schlagfertig." },
+  screech_lady: { id: "screech_lady", name: "Screech Lady", pack: "Grombühl-Paket", sprite: "screech_lady", rivalArgs: { mode: "fixed", args: ["screech"] }, ally: { type: "roundStartDmgEnemy", min: 5, max: 10, label: "Kreischt die Rivalin jede Runde an (5-10% Schaden)" }, blurb: "Obdachlos, drahtig, lange Rasta-Haare, Wanderrucksack, sehr aggressiv." },
+  junior_rakete: { id: "junior_rakete", name: "Junior Rakete", pack: "Grombühl-Paket", sprite: "junior_rakete", rivalArgs: { mode: "fixedPlusRandom", fixed: ["rakete"], randomCategory: "damage", randomCount: 1 }, ally: { type: "roundStartHealPlayer", min: 2.5, max: 5, label: "Heilt dich jede Runde (2.5-5%)" }, blurb: "Kräftig gebaut, lautstark, ruft ständig 'Rakete Rakete'." },
+  bahnhof: { id: "bahnhof", name: "Bahnhof Hänger", pack: "DB-Gestalten-Paket", sprite: "bahnhof", rivalArgs: { mode: "random", category: "damage", count: 1 }, ally: { type: "none", label: "Kein Effekt - einfach nur da." }, blurb: "Chillt mit unzähligen Taschen am Hauptbahnhof." },
+  pigeon: { id: "pigeon", name: "Pigeon", pack: "DB-Gestalten-Paket", sprite: "pigeon", rivalArgs: { mode: "fixed", args: ["rrruu"] }, ally: { type: "flatBoost", amount: 5, label: "+5% auf Heilung und Schaden" }, blurb: "Eine Taube. Sehr Taube. Ganz schön Taube." },
+};
+const CHAR_IDS = Object.keys(CHARS);
+
+function buildRivalArgs(mode) {
+  switch (mode.mode) {
+    case "fixed":
+      return [...mode.args];
+    case "fixedPlusRandom": {
+      const extra = [];
+      for (let i = 0; i < mode.randomCount; i++) extra.push(pickRandomArgId(mode.randomCategory, [...mode.fixed, ...extra]));
+      return [...mode.fixed, ...extra];
+    }
+    case "random": {
+      const picks = [];
+      for (let i = 0; i < mode.count; i++) picks.push(pickRandomArgId(mode.category, picks));
+      return picks;
+    }
+    case "oneEachRandom":
+      return [pickRandomArgId("damage"), pickRandomArgId("heal")];
+    default:
+      return [pickRandomArgId("damage"), pickRandomArgId("heal")];
+  }
+}
+
+function buildEnemy(playerMaxHp) {
+  const charId = choice(CHAR_IDS);
+  const c = CHARS[charId];
+  const maxHp = rndInt(Math.round(playerMaxHp * 0.3), Math.round(playerMaxHp * 0.75));
+  return { charId, name: c.name, maxHp, hp: maxHp, argIds: buildRivalArgs(c.rivalArgs) };
+}
+
+function pickEnemyArg(enemy) {
+  const healArgs = enemy.argIds.filter((id) => ARGS[id].category === "heal");
+  if (enemy.hp / enemy.maxHp < 0.5 && healArgs.length && Math.random() < 0.75) return choice(healArgs);
+  return choice(enemy.argIds);
+}
+
+/* ============================== BATTLE ENGINE ============================== */
+function playRound(battle, playerArgId, equippedCharId) {
+  const events = [];
+  let enemy = { ...battle.enemy };
+  let playerHp = battle.playerHp;
+  const playerMaxHp = battle.playerMaxHp;
+  const ally = equippedCharId ? CHARS[equippedCharId].ally : null;
+
+  if (ally && ally.type === "roundStartDmgEnemy") {
+    const dmg = pctAmount([ally.min, ally.max], enemy.maxHp);
+    enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
+    events.push({ speaker: CHARS[equippedCharId].name, text: "feuert Anni an und motzt " + enemy.name + " an!", delta: enemy.name + " -" + dmg, side: "ally" });
+  } else if (ally && ally.type === "roundStartHealPlayer") {
+    const heal = pctAmount([ally.min, ally.max], playerMaxHp);
+    playerHp = clamp(playerHp + heal, 0, playerMaxHp);
+    events.push({ speaker: CHARS[equippedCharId].name, text: "feuert Anni an!", delta: "Anni +" + heal, side: "ally" });
+  }
+
+  if (enemy.hp <= 0 || playerHp <= 0) {
+    return { events, playerHp, enemy, finished: true, winner: enemy.hp <= 0 ? "player" : "enemy", round: battle.round + 1 };
+  }
+
+  const playerFirst = Math.random() < 0.5;
+  const enemyArgId = pickEnemyArg(enemy);
+  let actions = [
+    { actor: "player", argId: playerArgId },
+    { actor: "enemy", argId: enemyArgId },
+  ];
+  if (!playerFirst) actions.reverse();
+
+  for (const act of actions) {
+    if (enemy.hp <= 0 || playerHp <= 0) break;
+    const isPlayer = act.actor === "player";
+    const def = ARGS[act.argId];
+    const casterMax = isPlayer ? playerMaxHp : enemy.maxHp;
+    const targetMax = isPlayer ? enemy.maxHp : playerMaxHp;
+    let { dmgToTarget = 0, dmgToSelf = 0, healToSelf = 0, healToTarget = 0 } = resolveArg(def, casterMax, targetMax);
+
+    if (isPlayer && ally) {
+      if (ally.type === "healBoost") healToSelf = Math.round(healToSelf * ally.mult);
+      if (ally.type === "dmgBoost") dmgToTarget = Math.round(dmgToTarget * ally.mult);
+      if (ally.type === "flatBoost") {
+        if (dmgToTarget > 0) dmgToTarget += Math.round((ally.amount / 100) * targetMax);
+        if (healToSelf > 0) healToSelf += Math.round((ally.amount / 100) * casterMax);
+      }
+    }
+
+    if (isPlayer) {
+      enemy.hp = clamp(enemy.hp - dmgToTarget, 0, enemy.maxHp);
+      playerHp = clamp(playerHp - dmgToSelf, 0, playerMaxHp);
+      playerHp = clamp(playerHp + healToSelf, 0, playerMaxHp);
+      enemy.hp = clamp(enemy.hp + healToTarget, 0, enemy.maxHp);
+    } else {
+      playerHp = clamp(playerHp - dmgToTarget, 0, playerMaxHp);
+      enemy.hp = clamp(enemy.hp - dmgToSelf, 0, enemy.maxHp);
+      enemy.hp = clamp(enemy.hp + healToSelf, 0, enemy.maxHp);
+      playerHp = clamp(playerHp + healToTarget, 0, playerMaxHp);
+    }
+
+    const targetLabel = isPlayer ? enemy.name : "Anni";
+    const casterLabel = isPlayer ? "Anni" : enemy.name;
+    const parts = [];
+    if (dmgToTarget > 0) parts.push(targetLabel + " -" + dmgToTarget);
+    if (dmgToSelf > 0) parts.push(casterLabel + " -" + dmgToSelf);
+    if (healToSelf > 0) parts.push(casterLabel + " +" + healToSelf);
+    if (healToTarget > 0) parts.push(targetLabel + " +" + healToTarget);
+    events.push({ speaker: casterLabel, text: def.dialogue, delta: parts.join(", "), side: isPlayer ? "player" : "enemy" });
+  }
+
+  const finished = enemy.hp <= 0 || playerHp <= 0;
+  const winner = finished ? (enemy.hp <= 0 ? "player" : "enemy") : null;
+  return { events, playerHp, enemy, finished, winner, round: battle.round + 1 };
+}
+
+/* ============================== PIXEL ART ============================== */
+const U = 6; // pixel unit size
+const GRID = 16;
+function blk(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * U, y * U, w * U, h * U);
+}
+
+function humanoid(ctx, { skin, hair, hairStyle, outfit, pants, wide = false }) {
+  const w1 = wide ? 2 : 3;
+  blk(ctx, 4, 12, 8, 4, pants);
+  blk(ctx, w1, 8, 16 - 2 * w1, 5, outfit);
+  blk(ctx, 6, 7, 4, 1, skin);
+  blk(ctx, 4, 2, 8, 6, skin);
+  blk(ctx, 6, 5, 1, 1, "#1a1a1a");
+  blk(ctx, 9, 5, 1, 1, "#1a1a1a");
+  if (hairStyle === "curly") {
+    blk(ctx, 3, 1, 2, 2, hair);
+    blk(ctx, 5, 0, 2, 2, hair);
+    blk(ctx, 7, 0, 2, 2, hair);
+    blk(ctx, 9, 0, 2, 2, hair);
+    blk(ctx, 11, 1, 2, 2, hair);
+    blk(ctx, 3, 3, 1, 2, hair);
+    blk(ctx, 12, 3, 1, 2, hair);
+  } else if (hairStyle === "buzz") {
+    blk(ctx, 4, 1, 8, 2, hair);
+  } else if (hairStyle === "rasta") {
+    blk(ctx, 4, 1, 8, 2, hair);
+    blk(ctx, 2, 2, 2, 9, hair);
+    blk(ctx, 4, 2, 1, 9, hair);
+    blk(ctx, 12, 2, 2, 9, hair);
+  } else if (hairStyle === "short") {
+    blk(ctx, 3, 1, 10, 3, hair);
+    blk(ctx, 3, 3, 1, 3, hair);
+    blk(ctx, 12, 3, 1, 3, hair);
+  } else if (hairStyle === "beanie") {
+    blk(ctx, 3, 1, 10, 3, hair);
+  }
+}
+
+const SPRITES = {
+  anni: (ctx) => {
+    humanoid(ctx, { skin: "#f2c9a0", hair: "#4a2f1f", hairStyle: "short", outfit: C.teal, pants: "#26262a" });
+    blk(ctx, 6, 9, 1, 1, C.pink);
+    blk(ctx, 9, 9, 1, 1, C.pink);
+  },
+  felix: (ctx) => {
+    humanoid(ctx, { skin: "#f0c39e", hair: "#3b2a1a", hairStyle: "curly", outfit: "#3a6ea5", pants: "#2b2b2b", wide: true });
+    blk(ctx, 5, 5, 2, 1, "#111");
+    blk(ctx, 9, 5, 2, 1, "#111");
+    blk(ctx, 7, 5, 2, 1, "#111");
+  },
+  vada: (ctx) => {
+    humanoid(ctx, { skin: "#caa06e", hair: "#e85d9e", hairStyle: "buzz", outfit: "#c94f8b", pants: "#333", wide: true });
+    blk(ctx, 2, 9, 12, 5, "#c94f8b");
+  },
+  screech_lady: (ctx) => {
+    humanoid(ctx, { skin: "#e2b98c", hair: "#7a5230", hairStyle: "rasta", outfit: "#5a5a3c", pants: "#4a3c2c" });
+    blk(ctx, 0, 8, 2, 6, "#6b4423");
+  },
+  junior_rakete: (ctx) => {
+    humanoid(ctx, { skin: "#b97a4a", hair: "#1a1a1a", hairStyle: "short", outfit: "#c94b2b", pants: "#2b2b2b", wide: true });
+  },
+  bahnhof: (ctx) => {
+    humanoid(ctx, { skin: "#d9b58a", hair: "#444", hairStyle: "beanie", outfit: "#556b2f", pants: "#3a3a3a" });
+    blk(ctx, 0, 10, 3, 3, "#7a5230");
+    blk(ctx, 13, 10, 3, 3, "#7a5230");
+  },
+  pigeon: (ctx) => {
+    blk(ctx, 4, 7, 8, 6, "#8892a6");
+    blk(ctx, 9, 5, 4, 4, "#8892a6");
+    blk(ctx, 8, 7, 2, 2, C.teal);
+    blk(ctx, 13, 7, 2, 1, C.yellow);
+    blk(ctx, 11, 6, 1, 1, "#1a1a1a");
+    blk(ctx, 5, 8, 3, 3, "#6b7488");
+    blk(ctx, 6, 13, 1, 1, C.yellow);
+    blk(ctx, 9, 13, 1, 1, C.yellow);
+  },
+};
+
+function bubble(ctx, accent) {
+  blk(ctx, 1, 1, 14, 10, C.paper);
+  blk(ctx, 1, 0, 14, 1, C.ink);
+  blk(ctx, 1, 11, 14, 1, C.ink);
+  blk(ctx, 0, 1, 1, 10, C.ink);
+  blk(ctx, 15, 1, 1, 10, C.ink);
+  blk(ctx, 3, 11, 2, 2, C.paper);
+  blk(ctx, 2, 12, 1, 1, C.ink);
+  blk(ctx, 5, 12, 1, 1, C.ink);
+}
+
+const ARG_ICONS = {
+  screech: (ctx) => {
+    bubble(ctx, C.pink);
+    blk(ctx, 4, 3, 2, 1, C.pink);
+    blk(ctx, 6, 4, 2, 1, C.pink);
+    blk(ctx, 5, 5, 2, 1, C.pink);
+    blk(ctx, 8, 3, 2, 1, C.pink);
+    blk(ctx, 7, 6, 2, 1, C.pink);
+    blk(ctx, 10, 4, 2, 1, C.pink);
+  },
+  rakete: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 7, 3, 2, 4, C.red);
+    blk(ctx, 6, 6, 4, 2, C.yellow);
+    blk(ctx, 7, 8, 2, 1, C.red);
+  },
+  suessi: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 5, 4, 2, 2, C.teal);
+    blk(ctx, 9, 4, 2, 2, C.teal);
+    blk(ctx, 6, 6, 4, 2, C.teal);
+    blk(ctx, 7, 8, 2, 1, C.teal);
+  },
+  rrruu: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 4, 5, 1, 3, C.teal);
+    blk(ctx, 6, 3, 1, 6, C.teal);
+    blk(ctx, 8, 5, 1, 3, C.teal);
+    blk(ctx, 10, 4, 1, 5, C.teal);
+  },
+  miau: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 6, 6, 2, 2, C.pink);
+    blk(ctx, 5, 4, 1, 1, C.pink);
+    blk(ctx, 7, 3, 1, 1, C.pink);
+    blk(ctx, 9, 4, 1, 1, C.pink);
+    blk(ctx, 8, 6, 2, 2, C.pink);
+  },
+  machste_nix: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 5, 4, 6, 4, C.pink);
+    blk(ctx, 6, 3, 4, 1, C.pink);
+  },
+  team_maskulin: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 5, 6, 3, 3, C.pink);
+    blk(ctx, 7, 4, 3, 3, C.pink);
+    blk(ctx, 9, 5, 2, 2, C.pink);
+  },
+  schmetterlinge: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 4, 4, 3, 3, C.teal);
+    blk(ctx, 9, 4, 3, 3, C.teal);
+    blk(ctx, 4, 7, 3, 2, C.teal);
+    blk(ctx, 9, 7, 3, 2, C.teal);
+    blk(ctx, 7, 3, 2, 6, C.ink);
+  },
+  labil: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 6, 2, 1, 3, C.pink);
+    blk(ctx, 7, 5, 1, 2, C.pink);
+    blk(ctx, 6, 7, 1, 3, C.pink);
+  },
+  nudelsalat: (ctx) => {
+    bubble(ctx);
+    blk(ctx, 7, 5, 2, 2, C.teal);
+    blk(ctx, 6, 4, 1, 1, C.teal);
+    blk(ctx, 9, 4, 1, 1, C.teal);
+    blk(ctx, 5, 6, 1, 1, C.teal);
+    blk(ctx, 10, 6, 1, 1, C.teal);
+    blk(ctx, 6, 8, 1, 1, C.teal);
+    blk(ctx, 9, 8, 1, 1, C.teal);
+  },
+};
+
+function PixelCanvas({ draw, size = 96 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const ctx = ref.current.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, GRID * U, GRID * U);
+    draw(ctx);
+  }, [draw]);
+  return <canvas ref={ref} width={GRID * U} height={GRID * U} style={{ width: size, height: size, imageRendering: "pixelated" }} />;
+}
+
+/* ============================== SMALL UI PIECES ============================== */
+function HealthBar({ value, max, color = C.pink }) {
+  const pct = clamp((value / max) * 100, 0, 100);
+  return (
+    <div style={{ background: C.asphaltDark, border: "2px solid " + C.ink, height: 14, borderRadius: 2, overflow: "hidden" }}>
+      <div style={{ width: pct + "%", height: "100%", background: color, transition: "width .4s ease" }} />
+    </div>
+  );
+}
+
+function Flyer({ children, style, tilt = -1 }) {
+  return (
+    <div
+      style={{
+        background: C.paper,
+        border: "2px solid " + C.ink,
+        borderRadius: 3,
+        padding: 12,
+        boxShadow: "3px 3px 0 " + C.ink,
+        transform: "rotate(" + tilt + "deg)",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Pixel({ id, size = 64 }) {
+  const draw = useCallback((ctx) => (SPRITES[id] || SPRITES.anni)(ctx), [id]);
+  return <PixelCanvas draw={draw} size={size} />;
+}
+function ArgIcon({ id, size = 48 }) {
+  const draw = useCallback((ctx) => (ARG_ICONS[id] || ARG_ICONS.machste_nix)(ctx), [id]);
+  return <PixelCanvas draw={draw} size={size} />;
+}
+
+/* ============================== SAVE STATE ============================== */
+function freshSave() {
+  const dmgId = pickRandomArgId("damage");
+  const healId = pickRandomArgId("heal");
+  return {
+    wisdom: 0,
+    health: 100,
+    ownedArgs: [dmgId, healId],
+    ownedChars: [],
+    equippedArgs: [dmgId, healId, null],
+    equippedChar: null,
+    streak: 0,
+  };
+}
+
+/* ============================== MAIN APP ============================== */
+function App() {
+  const [loaded, setLoaded] = useState(false);
+  const [save, setSave] = useState(null);
+  const [screen, setScreen] = useState("menu");
+  const [battle, setBattle] = useState(null);
+  const [battleResult, setBattleResult] = useState(null); // {type:'win'|'lose', ...}
+  const [gachaResult, setGachaResult] = useState(null);
+  const [equipPicker, setEquipPicker] = useState(null); // {kind:'char'|'arg', slot}
+  const [gameOverPicks, setGameOverPicks] = useState({ char: null, arg: null });
+  const logEndRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("anni-save");
+      if (raw) setSave(JSON.parse(raw));
+      else setSave(freshSave());
+    } catch (e) {
+      setSave(freshSave());
+    }
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded || !save) return;
+    try {
+      localStorage.setItem("anni-save", JSON.stringify(save));
+    } catch (e) {}
+  }, [save, loaded]);
+
+  useEffect(() => {
+    if (logEndRef.current) logEndRef.current.scrollTop = 0;
+  }, [battle?.log?.length]);
+
+  if (!loaded || !save) {
+    return (
+      <div style={{ ...shellStyle, alignItems: "center", justifyContent: "center", display: "flex" }}>
+        <div style={{ fontFamily: "'Press Start 2P'", color: C.paper, fontSize: 12 }}>LÄDT ...</div>
+      </div>
+    );
+  }
+
+  const startBattle = () => {
+    const enemy = buildEnemy(100);
+    setBattle({
+      enemy,
+      playerHp: save.health,
+      playerMaxHp: 100,
+      round: 1,
+      log: [{ speaker: "Erzähler", text: "Du triffst auf " + enemy.name + ".", delta: "Bereite deine Argumente vor!", side: "narrator" }],
+      finished: false,
+    });
+    setBattleResult(null);
+    setScreen("battle");
+  };
+
+  const useArgument = (argId) => {
+    if (!battle || battle.finished) return;
+    const result = playRound(battle, argId, save.equippedChar);
+    const newLog = [...result.events.slice().reverse(), ...battle.log];
+    const newBattle = { ...battle, enemy: result.enemy, playerHp: result.playerHp, round: result.round, log: newLog, finished: result.finished };
+    setBattle(newBattle);
+
+    if (result.finished) {
+      if (result.winner === "player") {
+        const wisdomGain = rndInt(25, 75) + 5 * (result.round - 1);
+        let healPct = rndInt(5, 15);
+        const allyDef = save.equippedChar ? CHARS[save.equippedChar].ally : null;
+        if (allyDef && allyDef.type === "roundStartHealPlayer") healPct += rndFloat(allyDef.min, allyDef.max);
+        const newHealth = clamp(result.playerHp + Math.round((healPct / 100) * 100), 0, 100);
+        setSave((s) => ({ ...s, wisdom: s.wisdom + wisdomGain, health: newHealth, streak: s.streak + 1 }));
+        setBattleResult({ type: "win", wisdomGain, healPct: Math.round(healPct) });
+      } else {
+        setSave((s) => ({ ...s, health: 0 }));
+        setGameOverPicks({ char: save.equippedChar, arg: save.equippedArgs.find(Boolean) || null });
+        setBattleResult({ type: "lose", survived: save.streak });
+      }
+    }
+  };
+
+  const restartAfterLoss = () => {
+    setSave((s) => ({
+      ...s,
+      health: 100,
+      streak: 0,
+      equippedChar: gameOverPicks.char,
+      equippedArgs: [gameOverPicks.arg, null, null],
+    }));
+    setBattle(null);
+    setBattleResult(null);
+    setScreen("menu");
+  };
+
+  const doGacha = (kind) => {
+    const cost = kind === "arg" ? 25 : 45;
+    if (save.wisdom < cost) return;
+    if (kind === "arg") {
+      const id = choice(ARG_IDS);
+      const owned = save.ownedArgs.includes(id);
+      if (owned) {
+        setSave((s) => ({ ...s, wisdom: s.wisdom - cost + 15 }));
+        setGachaResult({ kind: "arg", id, duplicate: true, refund: 15 });
+      } else {
+        setSave((s) => ({ ...s, wisdom: s.wisdom - cost, ownedArgs: [...s.ownedArgs, id] }));
+        setGachaResult({ kind: "arg", id, duplicate: false });
+      }
+    } else {
+      const id = choice(CHAR_IDS);
+      const owned = save.ownedChars.includes(id);
+      if (owned) {
+        setSave((s) => ({ ...s, wisdom: s.wisdom - cost + 35, health: clamp(s.health + Math.round(0.05 * 100), 0, 100) }));
+        setGachaResult({ kind: "char", id, duplicate: true, refund: 35 });
+      } else {
+        setSave((s) => ({ ...s, wisdom: s.wisdom - cost, ownedChars: [...s.ownedChars, id] }));
+        setGachaResult({ kind: "char", id, duplicate: false });
+      }
+    }
+  };
+
+  const equipArgToSlot = (argId, slot) => {
+    setSave((s) => {
+      const next = [...s.equippedArgs];
+      // remove existing occurrence of this arg elsewhere
+      for (let i = 0; i < next.length; i++) if (next[i] === argId) next[i] = null;
+      next[slot] = argId;
+      return { ...s, equippedArgs: next };
+    });
+    setEquipPicker(null);
+  };
+  const clearArgSlot = (slot) => {
+    setSave((s) => {
+      const next = [...s.equippedArgs];
+      next[slot] = null;
+      return { ...s, equippedArgs: next };
+    });
+  };
+  const equipChar = (charId) => {
+    setSave((s) => ({ ...s, equippedChar: charId }));
+    setEquipPicker(null);
+  };
+  const clearChar = () => setSave((s) => ({ ...s, equippedChar: null }));
+
+  return (
+    <div style={shellStyle}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+        * { box-sizing: border-box; }
+        button { font-family: 'VT323', monospace; cursor: pointer; }
+        @keyframes popIn { from { opacity:0; transform: translateY(-6px) scale(.97);} to {opacity:1; transform: translateY(0) scale(1);} }
+        .pop { animation: popIn .25s ease; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: ${C.pink}; border-radius: 3px; }
+      `}</style>
+
+      <TopBar wisdom={save.wisdom} health={save.health} />
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px 8px" }}>
+        {screen === "menu" && <MenuScreen save={save} onStart={startBattle} />}
+        {screen === "battle" && battle && (
+          <BattleScreen
+            battle={battle}
+            save={save}
+            onUse={useArgument}
+            result={battleResult}
+            logEndRef={logEndRef}
+            onNext={() => { setBattleResult(null); startBattle(); }}
+            onBackMenu={() => { setBattle(null); setBattleResult(null); setScreen("menu"); }}
+          />
+        )}
+        {screen === "gacha" && <GachaScreen save={save} onPull={doGacha} />}
+        {screen === "profile" && (
+          <ProfileScreen
+            save={save}
+            onOpenPicker={setEquipPicker}
+            onClearArg={clearArgSlot}
+            onClearChar={clearChar}
+          />
+        )}
+      </div>
+
+      <BottomNav screen={screen} setScreen={(s) => { if (s !== "battle") { setScreen(s); } }} inBattle={!!battle && !battleResult} />
+
+      {gachaResult && <GachaModal result={gachaResult} onClose={() => setGachaResult(null)} />}
+      {equipPicker && (
+        <EquipModal
+          picker={equipPicker}
+          save={save}
+          onClose={() => setEquipPicker(null)}
+          onPickArg={equipArgToSlot}
+          onPickChar={equipChar}
+        />
+      )}
+      {battleResult && battleResult.type === "lose" && (
+        <GameOverModal
+          survived={battleResult.survived}
+          save={save}
+          picks={gameOverPicks}
+          setPicks={setGameOverPicks}
+          onRestart={restartAfterLoss}
+        />
+      )}
+    </div>
+  );
+}
+
+const shellStyle = {
+  fontFamily: "'VT323', monospace",
+  fontSize: 19,
+  color: C.ink,
+  background: C.asphalt,
+  backgroundImage: "radial-gradient(circle at 20% 10%, #45454a 0%, " + C.asphalt + " 60%)",
+  maxWidth: 480,
+  margin: "0 auto",
+  minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
+};
+
+/* ============================== TOP BAR ============================== */
+function TopBar({ wisdom, health }) {
+  return (
+    <div style={{ padding: "12px 14px 8px", borderBottom: "2px solid " + C.ink, background: C.asphaltDark }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div style={{ fontFamily: "'Press Start 2P'", fontSize: 13, color: C.paper, letterSpacing: 1 }}>ANNI</div>
+        <div style={{ fontSize: 13, color: "#9a9a9e", letterSpacing: 1 }}>GROMBÜHL DEBATTIER-LIGA</div>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, background: C.paper, border: "2px solid " + C.ink, borderRadius: 999, padding: "2px 10px" }}>
+          <IconSparkles size={14} color={C.yellow} />
+          <span style={{ fontWeight: "bold" }}>{wisdom}</span>
+        </div>
+        <div style={{ flex: 1 }}>
+          <HealthBar value={health} max={100} />
+        </div>
+        <span style={{ color: C.paper, fontSize: 15 }}>{health}/100</span>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== BOTTOM NAV ============================== */
+function BottomNav({ screen, setScreen, inBattle }) {
+  const items = [
+    { id: "menu", label: "Diskussion", icon: IconSwords },
+    { id: "gacha", label: "Gacha", icon: IconSparkles },
+    { id: "profile", label: "Profil", icon: IconUser },
+  ];
+  const active = screen === "battle" ? "menu" : screen;
+  return (
+    <div style={{ display: "flex", borderTop: "2px solid " + C.ink, background: C.asphaltDark }}>
+      {items.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          onClick={() => setScreen(id)}
+          disabled={inBattle}
+          style={{
+            flex: 1,
+            background: active === id ? C.pink : "transparent",
+            color: active === id ? C.paper : "#9a9a9e",
+            border: "none",
+            padding: "10px 4px 8px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 3,
+            opacity: inBattle ? 0.4 : 1,
+          }}
+        >
+          <Icon size={18} />
+          <span style={{ fontSize: 13 }}>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ============================== MENU SCREEN ============================== */
+function MenuScreen({ save, onStart }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 10 }}>
+      <Flyer tilt={-1} style={{ textAlign: "center" }}>
+        <Pixel id="anni" size={110} />
+        <div style={{ fontFamily: "'Press Start 2P'", fontSize: 12, marginTop: 8 }}>ANNI</div>
+        <div style={{ fontSize: 16, color: "#555", marginTop: 4 }}>Streitet für eine bessere Welt - ein Argument nach dem anderen.</div>
+      </Flyer>
+      <div style={{ display: "flex", gap: 10 }}>
+        <StatPill label="Strähne" value={save.streak} />
+        <StatPill label="Weisheit" value={save.wisdom} />
+      </div>
+      <button
+        onClick={onStart}
+        style={{
+          background: C.pink,
+          color: C.paper,
+          border: "2px solid " + C.ink,
+          borderRadius: 4,
+          padding: "14px 22px",
+          fontSize: 20,
+          boxShadow: "3px 3px 0 " + C.ink,
+          width: "100%",
+        }}
+      >
+        Neue Diskussion starten
+      </button>
+      <div style={{ color: "#c9c9cd", fontSize: 15, textAlign: "center", padding: "0 8px" }}>
+        Eine zufällige Rivalin wartet schon in Grombühl. Rüste dich vorher im Profil aus!
+      </div>
+    </div>
+  );
+}
+
+function StatPill({ label, value }) {
+  return (
+    <div style={{ background: C.paper2, border: "2px solid " + C.ink, borderRadius: 4, padding: "6px 14px", textAlign: "center" }}>
+      <div style={{ fontSize: 13, color: "#555" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: "bold" }}>{value}</div>
+    </div>
+  );
+}
+
+/* ============================== BATTLE SCREEN ============================== */
+function BattleScreen({ battle, save, onUse, result, logEndRef, onNext, onBackMenu }) {
+  const { enemy, playerHp, playerMaxHp } = battle;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <Flyer tilt={1} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Pixel id={enemy.charId} size={56} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: "bold", fontSize: 18 }}>{enemy.name}</div>
+          <HealthBar value={enemy.hp} max={enemy.maxHp} color={C.red} />
+          <div style={{ fontSize: 14, color: "#555" }}>{enemy.hp}/{enemy.maxHp}</div>
+        </div>
+      </Flyer>
+
+      <div
+        ref={logEndRef}
+        style={{
+          maxHeight: 220,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        {battle.log.map((ev, i) => (
+          <div
+            key={i}
+            className={i === 0 ? "pop" : undefined}
+            style={{
+              background: ev.side === "player" ? "#fff" : ev.side === "narrator" ? C.paper2 : C.paper,
+              border: "2px solid " + C.ink,
+              borderRadius: 3,
+              padding: "6px 10px",
+              fontSize: 16,
+              opacity: i === 0 ? 1 : 0.75 - Math.min(i * 0.04, 0.35),
+            }}
+          >
+            <b>{ev.speaker}:</b> „{ev.text}“
+            {ev.delta && <div style={{ color: C.pink, fontSize: 14 }}>{ev.delta}</div>}
+          </div>
+        ))}
+      </div>
+
+      <Flyer tilt={-1} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Pixel id="anni" size={56} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: "bold", fontSize: 18 }}>Anni {save.equippedChar ? "+ " + CHARS[save.equippedChar].name : ""}</div>
+          <HealthBar value={playerHp} max={playerMaxHp} />
+          <div style={{ fontSize: 14, color: "#555" }}>{playerHp}/{playerMaxHp}</div>
+        </div>
+      </Flyer>
+
+      {!result && (
+        <div style={{ display: "flex", gap: 8 }}>
+          {[0, 1, 2].map((slot) => {
+            const argId = save.equippedArgs[slot];
+            const def = argId ? ARGS[argId] : null;
+            return (
+              <button
+                key={slot}
+                disabled={!def}
+                onClick={() => def && onUse(argId)}
+                style={{
+                  flex: 1,
+                  background: def ? (def.category === "damage" ? C.pink : C.teal) : C.asphaltDark,
+                  color: C.paper,
+                  border: "2px solid " + C.ink,
+                  borderRadius: 4,
+                  padding: "8px 4px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  opacity: def ? 1 : 0.4,
+                }}
+              >
+                {def ? <ArgIcon id={argId} size={38} /> : <IconLock size={20} />}
+                <span style={{ fontSize: 13 }}>{def ? def.name : "leer"}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {result && result.type === "win" && (
+        <Flyer tilt={1} style={{ background: C.yellow, textAlign: "center" }}>
+          <div style={{ fontFamily: "'Press Start 2P'", fontSize: 13 }}>SIEG!</div>
+          <div style={{ marginTop: 6 }}>+{result.wisdomGain} Weisheit, +{result.healPct}% Stärke geheilt</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={onNext} style={navBtnStyle}>Nächste Diskussion</button>
+            <button onClick={onBackMenu} style={{ ...navBtnStyle, background: C.paper2, color: C.ink }}>Zurück zum Menü</button>
+          </div>
+        </Flyer>
+      )}
+    </div>
+  );
+}
+const navBtnStyle = { flex: 1, background: C.pink, color: C.paper, border: "2px solid " + C.ink, borderRadius: 4, padding: "8px 4px", fontSize: 15 };
+
+/* ============================== GACHA SCREEN ============================== */
+function GachaScreen({ save, onPull }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <Flyer tilt={-1} style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "'Press Start 2P'", fontSize: 13 }}>GACHA</div>
+        <div style={{ fontSize: 15, color: "#555", marginTop: 4 }}>Tausche Weisheit gegen neue Argumente und Verbündete.</div>
+      </Flyer>
+      <PullCard title="Argument ziehen" cost={25} wisdom={save.wisdom} color={C.teal} onPull={() => onPull("arg")} note="10 mögliche Argumente aus Default- & Trash-Paket" />
+      <PullCard title="Verbündete/n ziehen" cost={45} wisdom={save.wisdom} color={C.pink} onPull={() => onPull("char")} note="6 mögliche Charaktere aus Default-, Grombühl- & DB-Gestalten-Paket" />
+    </div>
+  );
+}
+function PullCard({ title, cost, wisdom, color, onPull, note }) {
+  const canAfford = wisdom >= cost;
+  return (
+    <Flyer tilt={1}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: "bold", fontSize: 19 }}>{title}</div>
+          <div style={{ fontSize: 14, color: "#666" }}>{note}</div>
+        </div>
+        <IconSparkles color={color} size={22} />
+      </div>
+      <button
+        onClick={onPull}
+        disabled={!canAfford}
+        style={{
+          marginTop: 10,
+          width: "100%",
+          background: canAfford ? color : C.asphaltDark,
+          color: C.paper,
+          border: "2px solid " + C.ink,
+          borderRadius: 4,
+          padding: "10px",
+          fontSize: 17,
+          opacity: canAfford ? 1 : 0.5,
+        }}
+      >
+        Ziehen ({cost} Weisheit)
+      </button>
+    </Flyer>
+  );
+}
+
+function GachaModal({ result, onClose }) {
+  const isArg = result.kind === "arg";
+  const def = isArg ? ARGS[result.id] : CHARS[result.id];
+  return (
+    <Overlay onClose={onClose}>
+      <Flyer tilt={0} style={{ textAlign: "center", width: 260 }}>
+        <div style={{ fontFamily: "'Press Start 2P'", fontSize: 11, color: result.duplicate ? "#888" : C.pink }}>
+          {result.duplicate ? "DUPLIKAT" : "NEU!"}
+        </div>
+        <div style={{ margin: "10px 0" }}>{isArg ? <ArgIcon id={result.id} size={90} /> : <Pixel id={result.id} size={90} />}</div>
+        <div style={{ fontWeight: "bold", fontSize: 20 }}>{def.name}</div>
+        <div style={{ fontSize: 14, color: "#777" }}>{def.pack}</div>
+        <div style={{ fontSize: 15, marginTop: 6 }}>{isArg ? def.desc : def.blurb}</div>
+        {result.duplicate && (
+          <div style={{ marginTop: 8, color: C.pink }}>
+            +{result.refund} Weisheit{!isArg && " · +5% Stärke"} zurückerstattet
+          </div>
+        )}
+        <button onClick={onClose} style={{ ...navBtnStyle, marginTop: 12 }}>Weiter</button>
+      </Flyer>
+    </Overlay>
+  );
+}
+
+/* ============================== PROFILE SCREEN ============================== */
+function ProfileScreen({ save, onOpenPicker, onClearArg, onClearChar }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <Flyer tilt={-1} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Pixel id="anni" size={70} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: "bold", fontSize: 20 }}>Anni</div>
+          <HealthBar value={save.health} max={100} />
+          <div style={{ fontSize: 14, color: "#555" }}>{save.health}/100 Stärke</div>
+        </div>
+      </Flyer>
+
+      <Section title="Ausrüstung">
+        <div style={{ fontSize: 14, color: "#c9c9cd", marginBottom: 4 }}>Begleiter</div>
+        <SlotRow>
+          <EquipSlot
+            filled={save.equippedChar}
+            render={(id) => <Pixel id={id} size={44} />}
+            label={save.equippedChar ? CHARS[save.equippedChar].name : "leer"}
+            onClick={() => onOpenPicker({ kind: "char" })}
+            onClear={save.equippedChar ? onClearChar : null}
+          />
+        </SlotRow>
+        <div style={{ fontSize: 14, color: "#c9c9cd", margin: "10px 0 4px" }}>Argumente</div>
+        <SlotRow>
+          {[0, 1, 2].map((slot) => (
+            <EquipSlot
+              key={slot}
+              filled={save.equippedArgs[slot]}
+              render={(id) => <ArgIcon id={id} size={40} />}
+              label={save.equippedArgs[slot] ? ARGS[save.equippedArgs[slot]].name : "leer"}
+              onClick={() => onOpenPicker({ kind: "arg", slot })}
+              onClear={save.equippedArgs[slot] ? () => onClearArg(slot) : null}
+            />
+          ))}
+        </SlotRow>
+      </Section>
+
+      <Section title={"Gesammelte Verbündete (" + save.ownedChars.length + "/" + CHAR_IDS.length + ")"}>
+        {save.ownedChars.length === 0 && <Empty text="Noch keine Verbündeten gezogen." />}
+        {save.ownedChars.map((id) => (
+          <CollectionRow key={id} isChar id={id} equipped={save.equippedChar === id} onEquip={() => onOpenPicker({ kind: "char" })} />
+        ))}
+      </Section>
+
+      <Section title={"Gesammelte Argumente (" + save.ownedArgs.length + "/" + ARG_IDS.length + ")"}>
+        {save.ownedArgs.map((id) => (
+          <CollectionRow key={id} id={id} equippedSlot={save.equippedArgs.indexOf(id)} onEquip={(slot) => onOpenPicker({ kind: "arg", slot })} />
+        ))}
+      </Section>
+    </div>
+  );
+}
+function Section({ title, children }) {
+  return (
+    <Flyer tilt={0.5}>
+      <div style={{ fontWeight: "bold", fontSize: 16, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{title}</div>
+      {children}
+    </Flyer>
+  );
+}
+function SlotRow({ children }) {
+  return <div style={{ display: "flex", gap: 8 }}>{children}</div>;
+}
+function EquipSlot({ filled, render, label, onClick, onClear }) {
+  return (
+    <div style={{ position: "relative", flex: 1 }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: "100%",
+          background: filled ? "#fff" : C.paper2,
+          border: "2px dashed " + C.ink,
+          borderRadius: 4,
+          padding: "6px 2px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
+        {filled ? render(filled) : <IconLock size={18} color="#888" />}
+        <span style={{ fontSize: 12 }}>{label}</span>
+      </button>
+      {onClear && (
+        <button onClick={onClear} style={{ position: "absolute", top: -6, right: -6, background: C.red, color: "#fff", border: "2px solid " + C.ink, borderRadius: "50%", width: 20, height: 20, fontSize: 11, lineHeight: 1 }}>
+          <IconX size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+function Empty({ text }) {
+  return <div style={{ color: "#999", fontSize: 14 }}>{text}</div>;
+}
+function CollectionRow({ id, isChar, equipped, equippedSlot, onEquip }) {
+  const def = isChar ? CHARS[id] : ARGS[id];
+  const isEquipped = isChar ? equipped : equippedSlot > -1;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: "1px solid #d8cdb8" }}>
+      {isChar ? <Pixel id={id} size={36} /> : <ArgIcon id={id} size={32} />}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: "bold" }}>{def.name}</div>
+        <div style={{ fontSize: 12, color: "#777" }}>{def.pack}</div>
+      </div>
+      {isChar ? (
+        <button onClick={() => onEquip()} style={{ ...miniBtn, background: equipped ? C.teal : C.paper2, color: equipped ? "#fff" : C.ink }}>
+          {equipped ? <IconCheck size={14} /> : "Ausr."}
+        </button>
+      ) : (
+        <div style={{ display: "flex", gap: 3 }}>
+          {[0, 1, 2].map((slot) => (
+            <button key={slot} onClick={() => onEquip(slot)} style={{ ...miniBtn, width: 24, background: equippedSlot === slot ? C.teal : C.paper2, color: equippedSlot === slot ? "#fff" : C.ink }}>
+              {slot + 1}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+const miniBtn = { border: "2px solid " + C.ink, borderRadius: 3, padding: "3px 8px", fontSize: 13 };
+
+/* ============================== MODALS ============================== */
+function Overlay({ children, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>{children}</div>
+    </div>
+  );
+}
+
+function EquipModal({ picker, save, onClose, onPickArg, onPickChar }) {
+  const isChar = picker.kind === "char";
+  const ids = isChar ? save.ownedChars : save.ownedArgs;
+  return (
+    <Overlay onClose={onClose}>
+      <Flyer tilt={0} style={{ width: 280, maxHeight: "70vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontWeight: "bold" }}>{isChar ? "Begleiter wählen" : "Argument für Slot " + (picker.slot + 1)}</div>
+          <button onClick={onClose}><IconX size={16} /></button>
+        </div>
+        {ids.length === 0 && <Empty text={isChar ? "Noch keine Verbündeten." : "Noch keine Argumente."} />}
+        {ids.map((id) => {
+          const def = isChar ? CHARS[id] : ARGS[id];
+          return (
+            <button
+              key={id}
+              onClick={() => (isChar ? onPickChar(id) : onPickArg(id, picker.slot))}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", border: "none", borderTop: "1px solid #d8cdb8", background: "transparent", textAlign: "left" }}
+            >
+              {isChar ? <Pixel id={id} size={34} /> : <ArgIcon id={id} size={30} />}
+              <div>
+                <div style={{ fontSize: 15, fontWeight: "bold" }}>{def.name}</div>
+                <div style={{ fontSize: 12, color: "#777" }}>{isChar ? def.ally.label : def.desc}</div>
+              </div>
+              <IconChevron size={14} style={{ marginLeft: "auto" }} />
+            </button>
+          );
+        })}
+      </Flyer>
+    </Overlay>
+  );
+}
+
+function GameOverModal({ survived, save, picks, setPicks, onRestart }) {
+  return (
+    <Overlay>
+      <Flyer tilt={0} style={{ width: 280, textAlign: "center" }}>
+        <div style={{ fontFamily: "'Press Start 2P'", fontSize: 13, color: C.red }}>DISKUSSION VERLOREN</div>
+        <div style={{ marginTop: 8, fontSize: 18 }}>Du hast <b>{survived}</b> Diskussion{survived === 1 ? "" : "en"} überstanden.</div>
+        <div style={{ marginTop: 12, fontSize: 14, color: "#555" }}>Wähle, womit du neu startest:</div>
+
+        <div style={{ marginTop: 8, textAlign: "left" }}>
+          <div style={{ fontSize: 13, color: "#777" }}>Begleiter</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+            <button onClick={() => setPicks((p) => ({ ...p, char: null }))} style={{ ...miniBtn, background: picks.char === null ? C.teal : C.paper2 }}>ohne</button>
+            {save.ownedChars.map((id) => (
+              <button key={id} onClick={() => setPicks((p) => ({ ...p, char: id }))} style={{ ...miniBtn, background: picks.char === id ? C.teal : C.paper2 }}>
+                {CHARS[id].name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, textAlign: "left" }}>
+          <div style={{ fontSize: 13, color: "#777" }}>Argument</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+            {save.ownedArgs.map((id) => (
+              <button key={id} onClick={() => setPicks((p) => ({ ...p, arg: id }))} style={{ ...miniBtn, background: picks.arg === id ? C.teal : C.paper2 }}>
+                {ARGS[id].name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={onRestart} style={{ ...navBtnStyle, marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <IconRotate size={16} /> Neustart
+        </button>
+      </Flyer>
+    </Overlay>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
