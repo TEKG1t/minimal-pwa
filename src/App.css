@@ -241,6 +241,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .companion-picker button.selected { background: var(--lime); box-shadow: 3px 3px 0 var(--coral); }
 .companion-picker button span { font: 20px var(--mono); grid-row: span 2; }
 .companion-picker button small { grid-column: 2; font: 14px var(--mono); color: var(--muted); }
+.danger-zone { border-top: 2px solid var(--line); margin-top: 34px; padding: 22px 0 8px; display: flex; align-items: center; gap: 14px; justify-content: space-between; }
+.danger-zone p { color: var(--muted); font: 15px/1.1 var(--mono); margin: 8px 0 0; max-width: 210px; }
+.reset-button { flex: 0 0 auto; border: 2px solid var(--coral); background: transparent; color: var(--coral); padding: 10px 9px; font: 9px var(--pixel); }
+.reset-button:active { background: var(--coral); color: var(--ink); }
 .toast { position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); max-width: calc(100% - 28px); background: var(--ink); color: var(--lime); border: 2px solid var(--lime); padding: 11px 13px; font: 14px var(--mono); box-shadow: 3px 3px 0 var(--coral); z-index: 30; white-space: nowrap; }
 
 @media (min-width: 621px) {

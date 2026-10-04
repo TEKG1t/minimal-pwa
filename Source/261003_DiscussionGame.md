@@ -263,6 +263,24 @@ Beim Build werden unter anderem erzeugt:
 
 Dadurch kann die Anwendung nach der ersten Auslieferung als installierbare Web-App verwendet werden.
 
+## NFC-Freischaltung
+
+Die PWA besitzt eine spezielle Client-Route:
+
+```text
+/nfc/unlock-all
+```
+
+Wird diese URL geöffnet, beispielsweise über einen NFC-Tag, dann werden alle Argumente und alle Verbündeten lokal freigeschaltet. Die ersten drei Argumente werden automatisch als Loadout ausgerüstet. Der Spielstand bleibt im bestehenden `localStorage` erhalten.
+
+Nach dem Öffnen:
+
+- wechselt die Anwendung zum Arsenal
+- erscheint der Hinweis **„Smart NFC unlock! Alles freigeschaltet.“**
+- kann der NFC-Tag mehrfach verwendet werden, ohne Duplikate zu erzeugen
+
+Die Route ist eine Frontend-Route der statischen PWA. Der Webserver muss unbekannte Pfade auf `index.html` zurückführen, damit die React-Anwendung auch beim direkten Öffnen der NFC-URL geladen wird.
+
 ## Entwicklungsbefehle
 
 ```bash

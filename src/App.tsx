@@ -27,6 +27,7 @@ const RIVALS: Rival[] = [
 ]
 
 const initialSave: Save = { wisdom: 62, streak: 3, wins: 7, unlocked: ['screech', 'suessi', 'rrruu'], loadout: ['screech', 'suessi', 'rrruu'], ownedRivals: [], selectedRival: null }
+const NFC_UNLOCK_PATH = '/nfc/unlock-all'
 
 function loadSave(): Save {
   try {
@@ -37,16 +38,29 @@ function loadSave(): Save {
   }
 }
 
+function unlockEverything(save: Save): Save {
+  return {
+    ...save,
+    unlocked: MOVES.map((move) => move.id),
+    ownedRivals: RIVALS.map((rival) => rival.id),
+    loadout: MOVES.slice(0, 3).map((move) => move.id),
+  }
+}
+
 function App() {
-  const [save, setSave] = useState<Save>(loadSave)
-  const [screen, setScreen] = useState<Screen>('home')
+  const nfcUnlockRequested = window.location.pathname === NFC_UNLOCK_PATH
+  const [save, setSave] = useState<Save>(() => {
+    const storedSave = loadSave()
+    return nfcUnlockRequested ? unlockEverything(storedSave) : storedSave
+  })
+  const [screen, setScreen] = useState<Screen>(nfcUnlockRequested ? 'arsenal' : 'home')
   const [rival, setRival] = useState<Rival | null>(null)
   const [playerHp, setPlayerHp] = useState(100)
   const [rivalHp, setRivalHp] = useState(100)
   const [round, setRound] = useState(1)
   const [feed, setFeed] = useState<string[]>([])
   const [result, setResult] = useState<'win' | 'lose' | null>(null)
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState(nfcUnlockRequested ? '✨ Smart NFC unlock! Alles freigeschaltet.' : '')
   const selectedRival = RIVALS.find((item) => item.id === save.selectedRival) ?? null
 
   useEffect(() => { localStorage.setItem('anni-save-v2', JSON.stringify(save)) }, [save])
@@ -114,6 +128,17 @@ function App() {
     setSave((current) => ({ ...current, loadout: current.loadout.includes(id) ? current.loadout.filter((item) => item !== id) : [...current.loadout, id].slice(-3) }))
   }
 
+  const resetProgress = () => {
+    if (!window.confirm('Wirklich den gesamten Spielfortschritt löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return
+    window.localStorage.removeItem('anni-save-v2')
+    window.history.replaceState({}, '', '/')
+    setSave({ ...initialSave, unlocked: [...initialSave.unlocked], loadout: [...initialSave.loadout], ownedRivals: [] })
+    setScreen('home')
+    setRival(null)
+    setResult(null)
+    setToast('Fortschritt gelöscht.')
+  }
+
   const nav = (next: Screen) => { if (screen !== 'battle' || result) setScreen(next) }
   return (
     <main className="app-shell">
@@ -127,7 +152,7 @@ function App() {
         {screen === 'home' && <HomeScreen save={save} onStart={startBattle} onNavigate={nav} />}
         {screen === 'battle' && rival && <BattleScreen rival={rival} companion={selectedRival} playerHp={playerHp} rivalHp={rivalHp} round={round} feed={feed} loadout={save.loadout} result={result} onMove={playMove} onExit={() => nav('home')} />}
         {screen === 'arsenal' && <ArsenalScreen save={save} onPull={pull} onEquip={equip} />}
-        {screen === 'profile' && <ProfileScreen save={save} onSelectRival={(id) => setSave((current) => ({ ...current, selectedRival: id }))} />}
+        {screen === 'profile' && <ProfileScreen save={save} onSelectRival={(id) => setSave((current) => ({ ...current, selectedRival: id }))} onResetProgress={resetProgress} />}
       </section>
 
       <nav className="bottom-nav" aria-label="Hauptnavigation">
@@ -186,8 +211,8 @@ function ArsenalScreen({ save, onPull, onEquip }: { save: Save; onPull: (kind: '
 }
 
 function ScreenHeading({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) { return <div className="screen-heading"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div> }
-function ProfileScreen({ save, onSelectRival }: { save: Save; onSelectRival: (id: string | null) => void }) {
-  return <div className="content-screen profile-screen"><ScreenHeading eyebrow="IDENTITÄT" title="Profil" copy="Deine Statistik. Deine Regeln." /><div className="profile-card"><div className="profile-avatar">A<span>✦</span></div><div><span className="card-eyebrow">DISKUTANTIN SEIT 2026</span><h2>Anni</h2><p>Mutig, direkt und immer bereit für eine gute Runde.</p></div></div><div className="profile-stats"><Stat label="SIEGE" value={save.wins} /><Stat label="BESTE SERIE" value={save.streak} /><Stat label="WEISHEIT" value={save.wisdom} /></div><div className="manifesto"><span>„</span><p>Eine Diskussion ist erst vorbei, wenn niemand mehr zuhört.</p></div><div className="loadout-summary"><div className="section-title">AKTIVES LOADOUT <span>3 SLOTS</span></div>{save.loadout.map((id, index) => { const move = MOVES.find((item) => item.id === id); return move ? <div className="loadout-row" key={id}><span>0{index + 1}</span><b>{move.icon} {move.name}</b><small>{move.phrase}</small></div> : null })}</div><div className="companion-summary"><div className="section-title">AKTIVER VERBÜNDETER <span>{save.ownedRivals.length} GESAMMELT</span></div><div className="companion-picker"><button className={!save.selectedRival ? 'selected' : ''} onClick={() => onSelectRival(null)}>Ohne</button>{save.ownedRivals.map((id) => { const rival = RIVALS.find((item) => item.id === id); return rival ? <button className={save.selectedRival === id ? 'selected' : ''} key={id} onClick={() => onSelectRival(id)}><span>{rival.emoji}</span>{rival.name}<small>{rival.ally.label}</small></button> : null })}</div></div></div>
+function ProfileScreen({ save, onSelectRival, onResetProgress }: { save: Save; onSelectRival: (id: string | null) => void; onResetProgress: () => void }) {
+  return <div className="content-screen profile-screen"><ScreenHeading eyebrow="IDENTITÄT" title="Profil" copy="Deine Statistik. Deine Regeln." /><div className="profile-card"><div className="profile-avatar">A<span>✦</span></div><div><span className="card-eyebrow">DISKUTANTIN SEIT 2026</span><h2>Anni</h2><p>Mutig, direkt und immer bereit für eine gute Runde.</p></div></div><div className="profile-stats"><Stat label="SIEGE" value={save.wins} /><Stat label="BESTE SERIE" value={save.streak} /><Stat label="WEISHEIT" value={save.wisdom} /></div><div className="manifesto"><span>„</span><p>Eine Diskussion ist erst vorbei, wenn niemand mehr zuhört.</p></div><div className="loadout-summary"><div className="section-title">AKTIVES LOADOUT <span>3 SLOTS</span></div>{save.loadout.map((id, index) => { const move = MOVES.find((item) => item.id === id); return move ? <div className="loadout-row" key={id}><span>0{index + 1}</span><b>{move.icon} {move.name}</b><small>{move.phrase}</small></div> : null })}</div><div className="companion-summary"><div className="section-title">AKTIVER VERBÜNDETER <span>{save.ownedRivals.length} GESAMMELT</span></div><div className="companion-picker"><button className={!save.selectedRival ? 'selected' : ''} onClick={() => onSelectRival(null)}>Ohne</button>{save.ownedRivals.map((id) => { const rival = RIVALS.find((item) => item.id === id); return rival ? <button className={save.selectedRival === id ? 'selected' : ''} key={id} onClick={() => onSelectRival(id)}><span>{rival.emoji}</span>{rival.name}<small>{rival.ally.label}</small></button> : null })}</div></div><div className="danger-zone"><div><span className="card-eyebrow">SPIELDATEN</span><p>Setzt Siege, Weisheit, Argumente und Verbündete zurück.</p></div><button className="reset-button" onClick={onResetProgress}>Fortschritt löschen</button></div></div>
 }
 
 export default App
