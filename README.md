@@ -1,5 +1,12 @@
 # React + TypeScript + Vite
 
+## Character assets
+
+Animated character packs live in [`public/characters`](./public/characters).
+Create one folder per character and give each animation a JSON manifest next
+to its PNG frames. See [`public/characters/README.md`](./public/characters/README.md)
+for the manifest format and naming convention.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

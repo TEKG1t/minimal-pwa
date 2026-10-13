@@ -8,6 +8,9 @@ export default defineConfig({
 
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+      },
 
       manifest: {
         name: 'Minimal PWA',

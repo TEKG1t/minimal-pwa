@@ -1,0 +1,16 @@
+{
+  "id": "idle",
+  "frames": [
+    "idle__01.png",
+    "idle__02.png",
+    "idle__03.png",
+    "idle__04.png",
+    "idle__05.png"
+  ],
+  "fps": 2,
+  "loop": true,
+  "anchor": {
+    "x": 0.5,
+    "y": 1
+  }
+}

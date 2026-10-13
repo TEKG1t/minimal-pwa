@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import AnimatedCharacter from './components/AnimatedCharacter.tsx'
 
 type Screen = 'home' | 'battle' | 'arsenal' | 'profile'
 type Kind = 'damage' | 'heal' | 'wild'
@@ -173,7 +174,7 @@ function HomeScreen({ save, onStart, onNavigate }: { save: Save; onStart: () => 
   return <div className="home-screen">
     <div className="eyebrow"><span className="pulse" /> LIVE AUS DEM DEBATTIER-RING</div>
     <div className="hero-copy"><div className="hero-kicker">ARGUMENTE MIT HALTUNG</div><h1>Deine Stimme.<br /><em>Dein Ring.</em></h1><p>Ein rundenbasiertes Diskussion-Spiel für schlagfertige Menschen und alle, die es werden wollen.</p></div>
-    <div className="hero-stage"><div className="sunburst" /><div className="speech speech-left">ICH HABE<br /><strong>RECHT!</strong></div><div className="anni-avatar">A<span>✦</span></div><div className="speech speech-right">NA DANN<br /><strong>LOS!</strong></div><div className="stage-label">RING 01 / HEUTE</div></div>
+    <div className="hero-stage"><div className="sunburst" /><div className="speech speech-left">ICH HABE<br /><strong>RECHT!</strong></div><div className="anni-avatar">A<span>✦</span></div><div className="pigeon-animation"><AnimatedCharacter manifestUrl="/characters/pigeon/idle.json" name="Pigeon" /></div><div className="speech speech-right">NA DANN<br /><strong>LOS!</strong></div><div className="stage-label">RING 01 / HEUTE</div></div>
     <button className="primary-button" onClick={onStart}>Diskussion starten <span>→</span></button>
     <div className="home-grid"><Stat label="SIEGE" value={save.wins} /><Stat label="SERIE" value={save.streak} suffix="×" /><button className="text-button" onClick={() => onNavigate('profile')}>Loadout bearbeiten <span>↗</span></button></div>
     <div className="tip"><span>✦</span><div><b>PRO-TIPP</b><br />Heilung ist manchmal der stärkste Konter.</div></div>
